@@ -45,13 +45,13 @@ For the ImageReader functionality, there are three main parameter that can be ex
 
 The input layer defines the shape and size of the input data that the neural network expects by specifying the number of features or dimensions in the input data. In this module, InputLayer doesn't need special parameters to set up.
 
-<img width="565" alt="Jepretan Layar 2024-01-08 pukul 00 49 08" src="https://github.com/oktaviacitra/dl-ali-doc/assets/49669018/537a0042-ff9e-480f-bb30-b3310d63da94">
+<img width="558" alt="Jepretan Layar 2024-01-08 pukul 09 09 55" src="https://github.com/oktaviacitra/dl-ali-doc/assets/49669018/115af000-da00-4653-86be-979a19910749">
 
 ## Convolution Layer
 
 Convolutional layer is a fundamental building block of Convolutional Neural Networks that designed to learn spatial hierarchies of features from the input data adaptively.
 
-<img width="700" alt="Jepretan Layar 2024-01-08 pukul 08 26 11" src="https://github.com/oktaviacitra/dl-ali-doc/assets/49669018/11bb80a8-3811-415b-b906-929d456977b4">
+<img width="777" alt="Jepretan Layar 2024-01-08 pukul 09 10 21" src="https://github.com/oktaviacitra/dl-ali-doc/assets/49669018/88349255-b3ed-4022-83d6-254baa3097e3">
 
 For the Convolution layer functionality, the are eight main parameter that can be explored.
 
@@ -76,7 +76,7 @@ Filter is a small-sized matrix used for the convolution operation. During the tr
 
 It is down-sampling operation to reduce the spatial dimensions of the input volume and subsequently decrease the computational complexity of the network.
 
-<img width="890" alt="Jepretan Layar 2024-01-08 pukul 08 52 57" src="https://github.com/oktaviacitra/dl-ali-doc/assets/49669018/09297b51-24d2-4d93-a65d-260bfa08bab6">
+<img width="901" alt="Jepretan Layar 2024-01-08 pukul 09 11 13" src="https://github.com/oktaviacitra/dl-ali-doc/assets/49669018/64216081-c52f-4916-b8ef-10aa7627e9bf">
 
 For the Subsample layer functionality, there are four main parameter that can be explored.
 
@@ -86,3 +86,84 @@ For the Subsample layer functionality, there are four main parameter that can be
 | kernel | [*vertical*, *horizontal*] |
 | strides | [*vertical*, *horizontal*] |
 | dilations | [*vertical*, *horizontal*] |
+
+## Flatten
+
+The purpose of the flatten operation is to transition from the spatial representation of features in the convolutional and pooling layers to a format that can be fed into traditional fully connected layers.
+
+<img width="622" alt="Jepretan Layar 2024-01-08 pukul 09 11 48" src="https://github.com/oktaviacitra/dl-ali-doc/assets/49669018/9dc8e46f-32da-4654-b78b-11beb88704f3">
+
+In this module, InputLayer functinality doesn't need special parameters to set up.
+
+## Fully Connected
+
+Fully Connected is a type of layer where each neuron or node is connected to every neuron in the previous and the next layers. Unlike convolutional and pooling layers, which operate on local regions of the input, fully connected layers process the entire input. 
+
+<img width="817" alt="Jepretan Layar 2024-01-08 pukul 09 42 44" src="https://github.com/oktaviacitra/dl-ali-doc/assets/49669018/463a2ea3-3205-4e33-a850-736292f99fb3">
+
+For the Fully Connected layer functionality, the are six main parameter that can be explored.
+
+| Parameter | Options |
+| :---: | :----: |
+| unit | numerical array |
+| activation | "relu", "leaky relu", "elu", "selu", "binary step", "tanh", "arc tan", "prelu", "soft plus", "soft sign", "linear" |
+| epoch | 20, 40, 100, until infinity |
+| erroType | "mse" or "mae" |
+| learningRate | 0 until 1 |
+| weightInitial | "xavier", "he", or "standard" |
+
+# Sample Code
+
+        String path = "/Users/oktaviacitra/cifar/";
+        String[] labels = new LabelReader(path + "train/").getClasses();
+        ImageReader reader = ImageReader.getInstance(labels, "grayscale").normalization(true);
+        RandomState randomState = new RandomState();
+
+        double[][][][] trainImages = reader.retrieve(path + "/train");
+        double[][] trainTargets = reader.getTargets();
+        trainImages = randomState.generate(trainImages, trainTargets);
+        trainTargets = randomState.getTarget();
+
+        double[][][][] testImages = reader.retrieve(path + "/test");
+        double[][] testTargets = reader.getTargets();
+
+        Input2DLayer inputLayer = Input2DLayer.getInstance("layer 2");
+        double[][][][][] trainFeatures = inputLayer.transform(trainImages);
+        double[][][][][] testFeatures = inputLayer.transform(testImages);
+
+        double[][][] filter = new double[][][]{
+                Filter2D.Kernel3x3.HORIZONTAL_LINES_DETECTION,
+                Filter2D.Kernel2x2.ROBERTS_HORIZONTAL
+        };
+
+        Convolution2DLayer convolution2DLayer = Convolution2DLayer.getInstance("layer 2", filter)
+                .activation("relu")
+                .dilations(new int[]{1, 2})
+                .strides(new int[]{2, 1})
+                .epoch(20)
+                .errorType("mae")
+                .learningRate(0.01)
+                .weightInitial("xavier");
+        trainFeatures = convolution2DLayer.train(trainFeatures, testFeatures, true);
+        testFeatures = convolution2DLayer.getTestOutputs();
+
+        SubSample2DLayer subSample2DLayer = SubSample2DLayer.getInstance("layer 3", "max", new int[]{3, 3})
+                .strides(new int[]{2, 2})
+                .dilations(new int[]{2, 2});
+        trainFeatures = subSample2DLayer.transform(trainFeatures);
+        testFeatures = subSample2DLayer.transform(testFeatures);
+
+        Flatten2DLayer flatten2DLayer = Flatten2DLayer.getInstance("layer 4");
+        double[][] trainFlatten = flatten2DLayer.transform(trainFeatures);
+        double[][] testFlatten = flatten2DLayer.transform(testFeatures);
+
+        FullyConnectedLayer fullyConnectedLayer = FullyConnectedLayer
+                .getInstance("layer 5", new int[]{32, 16, 10}, new String[]{"relu", "relu", "softmax"})
+                .learningRate(0.01)
+                .errorType("mae")
+                .epoch(20)
+                .weightInitial("he");
+        double[][] trainOutputs = fullyConnectedLayer
+                .train(trainFlatten, testFlatten, trainTargets, testTargets, true);
+        double[][] testOutputs = fullyConnectedLayer.getTestOutputs();
+
